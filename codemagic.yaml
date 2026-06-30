@@ -15,9 +15,6 @@ workflows:
     integrations:
       app_store_connect: AppStoreKey
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: info.redefinepolitics.calltime
       vars:
         BUNDLE_ID: "info.redefinepolitics.calltime"
         APP_STORE_APPLE_ID: 6786073399   # "ReDEFINE Politics" app, bundle info.redefinepolitics.calltime
@@ -43,7 +40,16 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :NSContactsUsageDescription string \"$MSG\"" "$PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :NSContactsUsageDescription \"$MSG\"" "$PLIST"
       - name: Set up code signing
-        script: xcode-project use-profiles
+        script: |
+          keychain initialize
+          # Create the iOS distribution certificate + App Store provisioning profile
+          # for this bundle id if they don't exist yet (fresh Apple account), then
+          # install them so Xcode can sign. Auth comes from the AppStoreKey integration.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build the IPA
         script: |
           xcode-project build-ipa \
