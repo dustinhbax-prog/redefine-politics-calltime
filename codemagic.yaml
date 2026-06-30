@@ -1,0 +1,58 @@
+# Cloud-Mac build for the Call Time iOS app (Capacitor) → TestFlight.
+# No Mac required: Codemagic runs this on a hosted macOS instance.
+#
+# One-time setup in the Codemagic UI before the first run:
+#   1. Connect this repo (GitHub/GitLab/Bitbucket).
+#   2. Teams → Integrations → App Store Connect → add your App Store Connect API
+#      key (Issuer ID + Key ID + the .p8). Name the integration exactly: AppStoreKey
+#   3. In App Store Connect, create the app record with bundle id
+#      info.redefinepolitics.calltime, and put its numeric Apple ID below.
+workflows:
+  ios-calltime:
+    name: Call Time iOS
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: AppStoreKey
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: info.redefinepolitics.calltime
+      vars:
+        BUNDLE_ID: "info.redefinepolitics.calltime"
+        APP_STORE_APPLE_ID: 6786073399   # "ReDEFINE Politics" app, bundle info.redefinepolitics.calltime
+        # Web build-time vars (the native app bypasses the password gate, so this is
+        # just to satisfy the build; set the real value in Codemagic if you prefer):
+        VITE_APP_PASSWORD: "calltime"
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build the web app
+        script: npm run build
+      - name: Add & sync the iOS platform
+        script: |
+          [ -d ios ] || npx cap add ios
+          npx cap sync ios
+      - name: Add the Contacts permission string
+        script: |
+          PLIST=ios/App/App/Info.plist
+          MSG="Call Time matches the people in your contacts to donor profiles so you can call from a ranked list. Your contacts stay private to your own call list."
+          /usr/libexec/PlistBuddy -c "Add :NSContactsUsageDescription string \"$MSG\"" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :NSContactsUsageDescription \"$MSG\"" "$PLIST"
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build the IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

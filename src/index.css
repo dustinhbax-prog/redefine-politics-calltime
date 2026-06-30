@@ -1,0 +1,421 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme variables ──
+   Rebranded to the ReDEFINE Politics brand identity (matches the marketing site):
+   brand red #ce1b2c (--color-accent), brand blue #0f4fc9 (--color-blue), ink/paper.
+   :root = rebranded DARK theme; [data-theme="day"] = PAPER (light, default). */
+:root {
+  --color-bg:     #0e0f11;
+  --color-panel:  #15171a;
+  --panel-glass:  rgba(21, 23, 26, 0.74);   /* frosted map overlays (Tailwind /opacity can't alpha a var) */
+  --color-border: #2a2d31;
+  --color-muted:  #8a8f98;
+  --color-text:   #e6e8ec;
+  --color-accent: #e23b48;   /* brand red, brightened for dark legibility */
+  --color-green:  #22c55e;
+  --color-red:    #ef4444;
+  --color-blue:   #4f86ff;   /* brand blue, on-dark variant */
+
+  --app-font-size:   12px;
+  --app-font-family: 'JetBrains Mono', Consolas, monospace;
+
+  /* Brand fonts (data tables stay mono via --app-font-family above) */
+  --font-display: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-body:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Brand surface tokens */
+  --brand-red:    #ce1b2c;
+  --brand-blue:   #0f4fc9;
+  --shadow-sm: 0 1px 2px rgba(8, 10, 14, 0.4), 0 4px 16px rgba(8, 10, 14, 0.3);
+  --shadow-md: 0 12px 40px rgba(8, 10, 14, 0.5);
+
+  /* Precomputed tints/shadows (NOT color-mix — html2canvas can't parse modern
+     color functions, which silently breaks the page-snapshot animations). */
+  --row-alt:          rgba(230, 232, 236, 0.05);
+  --row-hover:        rgba(226, 59, 72, 0.16);
+  --skeleton-bg:      rgba(138, 143, 152, 0.35);
+  --btn-shadow:       rgba(226, 59, 72, 0.34);
+  --btn-shadow-hover: rgba(226, 59, 72, 0.42);
+  --focus-ring:       rgba(79, 134, 255, 0.32);
+}
+
+[data-theme="day"] {
+  --color-bg:     #f5f6f8;   /* soft paper */
+  --color-panel:  #ffffff;   /* white cards pop */
+  --panel-glass:  rgba(255, 255, 255, 0.74);   /* frosted map overlays */
+  --color-border: #e6e8ec;   /* marketing --line */
+  --color-muted:  #6b7280;
+  --color-text:   #15171a;   /* ink */
+  --color-accent: #ce1b2c;   /* brand red */
+  --color-green:  #16a34a;
+  --color-red:    #dc2626;
+  --color-blue:   #0f4fc9;   /* brand blue */
+
+  --shadow-sm: 0 1px 2px rgba(21, 23, 26, 0.06), 0 4px 16px rgba(21, 23, 26, 0.05);
+  --shadow-md: 0 12px 40px rgba(21, 23, 26, 0.12);
+
+  --row-alt:          rgba(21, 23, 26, 0.04);
+  --row-hover:        rgba(206, 27, 44, 0.12);
+  --skeleton-bg:      rgba(107, 114, 128, 0.35);
+  --btn-shadow:       rgba(206, 27, 44, 0.30);
+  --btn-shadow-hover: rgba(206, 27, 44, 0.38);
+  --focus-ring:       rgba(15, 79, 201, 0.22);
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--app-font-family);
+    font-size: var(--app-font-size);
+  }
+
+  /* Visible keyboard-focus ring across all interactive chrome. Uses the theme
+     focus-ring var (precomputed rgba — never color-mix/oklch). Only shows for
+     keyboard navigation (:focus-visible), so mouse users see no change. */
+  :focus-visible {
+    outline: 2px solid var(--color-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar            { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track      { background: var(--color-panel); }
+  ::-webkit-scrollbar-thumb      { background: var(--color-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover{ background: var(--color-muted); }
+}
+
+@layer components {
+  /* Brand pill buttons — restyled in one place, so every .btn-primary/.btn-ghost
+     across the app picks up the marketing look. Padding kept ≈ original (no reflow). */
+  .btn-primary {
+    @apply bg-terminal-accent text-white font-semibold px-4 py-1.5 text-xs uppercase tracking-wider rounded-full transition-all;
+    font-family: var(--font-display);
+    box-shadow: 0 6px 18px var(--btn-shadow);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px var(--btn-shadow-hover);
+    filter: brightness(0.94);
+  }
+  .btn-ghost {
+    @apply border border-terminal-border px-4 py-1.5 text-xs uppercase tracking-wider text-terminal-muted rounded-full transition-all;
+    font-family: var(--font-display);
+  }
+  .btn-ghost:hover {
+    @apply border-terminal-accent text-terminal-accent;
+    transform: translateY(-1px);
+  }
+  .input-field {
+    @apply bg-terminal-panel border border-terminal-border text-terminal-text px-2 py-1 text-xs focus:outline-none w-full rounded-md transition-colors;
+  }
+  .input-field:focus {
+    border-color: var(--color-blue);
+    box-shadow: 0 0 0 2px var(--focus-ring);
+  }
+  .label {
+    @apply text-terminal-muted text-xs uppercase tracking-wider mb-1 block;
+    font-family: var(--font-body);
+  }
+}
+
+/* ── Brand fonts (opt-in; body default stays mono so data tables are untouched) ── */
+.font-display { font-family: var(--font-display); }
+.font-body    { font-family: var(--font-body); }
+
+/* ── Paper card with brand left-bar accent (marketing motif) ── */
+.card-brand {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.card-brand:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.card-brand--blue { border-left-color: var(--color-blue); }
+
+/* ── Data-table rows (theme-aware: tint derives from theme vars, not hard white) ── */
+.dt-row { transition: background-color 0.12s ease; }
+.dt-row-alt { background: var(--row-alt); }
+.dt-row:hover { background: var(--row-hover); }
+
+/* ── DPI map side panel (data tables + connected explanation bubble) ── */
+.dpi-sec-head {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 6px;
+}
+.dpi-grp-head {
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 5px;
+}
+.dpi-table { background: var(--color-bg); }
+.dpi-row {
+  position: relative;
+  cursor: default;
+  outline: none;
+  transition: background-color 0.12s ease;
+}
+.dpi-row:hover,
+.dpi-row:focus-visible {
+  background: var(--row-hover);
+}
+/* brand-red marker on the active row, visually tying it to the bubble */
+.dpi-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0;
+  background: var(--color-accent);
+  transition: width 0.12s ease;
+}
+.dpi-row:hover::before,
+.dpi-row:focus-visible::before { width: 2px; }
+
+/* year pills in the win-number table */
+.dpi-yr {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+}
+.dpi-yr[data-y26="1"] {
+  color: var(--color-green);
+  background: var(--row-y26, rgba(34, 197, 94, 0.14));
+}
+.dpi-yr[data-y26="0"] {
+  color: var(--color-accent);
+  background: var(--row-hover);
+}
+[data-theme="day"] .dpi-yr[data-y26="1"] { --row-y26: rgba(22, 163, 74, 0.12); }
+
+/* connected explanation bubble: pinned to the panel's right edge, vertically
+   aligned to the hovered row, with a tail pointing right toward that row. */
+.dpi-bubble {
+  position: absolute;
+  right: 14px;
+  left: 14px;
+  z-index: 30;
+  pointer-events: none;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  padding: 9px 11px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text);
+  animation: dpi-bubble-in 0.14s ease;
+}
+@keyframes dpi-bubble-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dpi-bubble-tail {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  background: var(--color-panel);
+}
+/* bubble below the row -> tail on top, pointing up at the row */
+.dpi-bubble.is-below .dpi-bubble-tail {
+  top: -6px;
+  border-top: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
+  transform: rotate(45deg);
+}
+/* bubble above the row -> tail on bottom, pointing down at the row */
+.dpi-bubble.is-above .dpi-bubble-tail {
+  bottom: -6px;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  transform: rotate(45deg);
+}
+/* "next on the ballot" line inside the bubble */
+.dpi-bubble-next {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-border);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+.dpi-bubble-next svg { color: var(--color-accent); flex-shrink: 0; }
+.dpi-bubble-next b {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-left: 1px;
+}
+
+/* ── Skeleton loading shimmer ── */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.7; }
+}
+.skeleton {
+  background: var(--skeleton-bg);
+  border-radius: 2px;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Typographic hierarchy (chrome uses brand Archivo; numbers stay mono/tabular) ── */
+.page-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  line-height: 1.1;
+}
+.stat-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  color: var(--color-text);
+}
+
+/* ── Brand wordmark (Re=red, DEFINE=blue, POLITICS=ink) for hero headlines ── */
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 0.98;
+  color: var(--color-text);
+}
+.wordmark .wm-red  { color: var(--color-accent); }
+.wordmark .wm-blue { color: var(--color-blue); }
+
+/* ── Rich text editor (Email Builder) ── */
+.rich-editor-body { font-family: Helvetica, Arial, sans-serif; }
+.rich-editor-body p { margin: 0 0 12px; }
+.rich-editor-body ul { list-style: disc; padding-left: 1.5em; margin: 0 0 12px; }
+.rich-editor-body ol { list-style: decimal; padding-left: 1.5em; margin: 0 0 12px; }
+.rich-editor-body li { margin: 0 0 4px; }
+.rich-editor-body a { color: var(--color-blue); text-decoration: underline; }
+.rich-editor-body strong { font-weight: 700; }
+.rich-editor-body em { font-style: italic; }
+.rich-editor-body figure { margin: 16px auto; text-align: center; max-width: 100%; }
+.rich-editor-body figure.md-image-full { width: 100%; }
+.rich-editor-body figure.md-image-center { width: 70%; }
+.rich-editor-body figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 6px; }
+.rich-editor-body figcaption { margin-top: 6px; color: #888; font-style: italic; font-size: 0.85em; line-height: 1.4; }
+.rich-editor-body img:not(figure img) { max-width: 70%; height: auto; display: block; margin: 16px auto; border-radius: 6px; }
+
+/* Side-by-side image + text figures (Image-left / Image-right layouts). */
+.rich-editor-body figure.md-image-left,
+.rich-editor-body figure.md-image-right {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  margin: 18px 0;
+  text-align: left;
+  border-collapse: separate;
+}
+.rich-editor-body figure.md-image-left .md-image-cell,
+.rich-editor-body figure.md-image-right .md-image-cell {
+  display: table-cell;
+  width: 40%;
+  vertical-align: top;
+}
+.rich-editor-body figure.md-image-left .md-text-cell,
+.rich-editor-body figure.md-image-right .md-text-cell {
+  display: table-cell;
+  width: 60%;
+  vertical-align: top;
+}
+.rich-editor-body figure.md-image-left .md-image-cell { padding-right: 14px; }
+.rich-editor-body figure.md-image-right .md-image-cell { padding-left: 14px; }
+.rich-editor-body figure.md-image-left .md-image-cell img,
+.rich-editor-body figure.md-image-right .md-image-cell img { width: 100%; }
+.rich-editor-body figure.md-image-left .md-text-cell p:first-child,
+.rich-editor-body figure.md-image-right .md-text-cell p:first-child { margin-top: 0; }
+
+/* Hover-visible × button so figures (images) can be deleted with one click —
+   contenteditable's normal backspace path is finicky with non-editable cells. */
+.rich-editor-body figure { position: relative; }
+.rich-editor-body .md-figure-del {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: none;
+  z-index: 5;
+}
+.rich-editor-body figure:hover .md-figure-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rich-editor-body .md-figure-del:hover { background: rgba(220, 38, 38, 0.9); }
+
+/* Compact editor (sign-off): images render at signature-line scale, not body scale. */
+.rich-editor-compact figure.md-image-center { width: 180px; max-width: 180px; }
+.rich-editor-compact figure.md-image-full   { width: 100%; max-width: 280px; }
+/* Override fixed-table cell widths from the body rules so the image cell
+   stays at 80px and the text fills the remaining space without overflow. */
+.rich-editor-compact figure.md-image-left,
+.rich-editor-compact figure.md-image-right {
+  width: 100%;
+  max-width: 100%;
+  table-layout: auto;
+}
+.rich-editor-compact figure.md-image-left .md-image-cell,
+.rich-editor-compact figure.md-image-right .md-image-cell { width: 80px; }
+.rich-editor-compact figure.md-image-left .md-text-cell,
+.rich-editor-compact figure.md-image-right .md-text-cell { width: auto; }
+.rich-editor-compact figure { margin: 8px auto; }
+.rich-editor-compact figcaption { font-size: 0.75em; }
+
+/* Glowing "business owner" badge (donor profile). Driven by SOS business-registry
+   verifications. rgba only — NO color-mix/oklch (html2canvas morph-capture safe). */
+@keyframes bizGlow {
+  0%, 100% { box-shadow: 0 0 4px 0 rgba(245,180,40,0.55), inset 0 0 3px rgba(245,180,40,0.30); }
+  50%      { box-shadow: 0 0 12px 2px rgba(245,180,40,0.95), inset 0 0 6px rgba(245,180,40,0.45); }
+}
+.biz-glow {
+  color: #6b4300;
+  background: rgba(247, 203, 75, 0.96);
+  border: 1px solid rgba(176, 124, 18, 0.85);
+  animation: bizGlow 1.8s ease-in-out infinite;
+}
+[data-theme="day"] .biz-glow { color: #5a3a00; background: rgba(250, 211, 92, 0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .biz-glow { animation: none; box-shadow: 0 0 8px rgba(245,180,40,0.85); }
+}
