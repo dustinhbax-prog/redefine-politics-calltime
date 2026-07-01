@@ -94,7 +94,7 @@ workflows:
   # we host on the VPS for direct download.
   android-calltime:
     name: Call Time Android
-    instance_type: linux_x2
+    instance_type: mac_mini_m2   # free plan has macOS minutes; the image builds Android too
     max_build_duration: 45
     environment:
       vars:
