@@ -6,7 +6,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 // "Allow access to Contacts?" permission the web can't offer.
 const config: CapacitorConfig = {
   appId: 'info.redefinepolitics.calltime',
-  appName: 'Call Time',
+  appName: 'ReDefine Call Time',
   webDir: 'dist',
   // Load the app from the live site INSIDE the native shell. This keeps the web
   // content same-origin with the API (so /api/* calls reach the backend — a
