@@ -42,17 +42,21 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          # A prior build left an orphan distribution certificate in the account whose
-          # private key isn't on this ephemeral machine. Revoke unusable distribution
-          # certs (this account is dedicated to this app) and create one fresh WITH a
-          # private key, so signing has a usable cert+key pair.
-          for cid in $(app-store-connect list-certificates --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import sys,json;[print(c['id']) for c in json.load(sys.stdin)]" 2>/dev/null); do
-            app-store-connect delete-certificate "$cid" || true
-          done
-          app-store-connect create-certificate --type IOS_DISTRIBUTION --save
-          # Create/fetch the App Store provisioning profile for the bundle id + install.
+          # `certificates create` won't self-generate a key, so make one and hand it to
+          # both the cert and profile commands (that's what assembles a usable .p12).
+          CERT_KEY=/tmp/dist_cert_key.pem
+          openssl genrsa -out "$CERT_KEY" 2048
+          # Account is dedicated to this app: revoke old distribution certs so rebuilds
+          # never hit Apple's 2-cert limit. Best-effort (won't fail the build).
+          app-store-connect certificates list --type IOS_DISTRIBUTION --json 2>/dev/null \
+            | python3 -c "import sys,json;[print(c['id']) for c in json.load(sys.stdin)]" 2>/dev/null \
+            | while read -r cid; do app-store-connect certificates delete "$cid" 2>/dev/null || true; done
+          # Create the distribution certificate WITH our key, then create/fetch the App
+          # Store provisioning profile for the bundle id and install everything.
+          app-store-connect certificates create --type IOS_DISTRIBUTION --certificate-key=@file:"$CERT_KEY" --save || true
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key=@file:"$CERT_KEY" \
             --create
           keychain add-certificates
           xcode-project use-profiles
