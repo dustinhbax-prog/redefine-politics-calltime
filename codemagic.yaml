@@ -111,10 +111,6 @@ workflows:
           npx cap sync android
       - name: Generate the app icon
         script: npx @capacitor/assets generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff'
-      - name: Ensure the Contacts permission is declared
-        script: |
-          M=android/app/src/main/AndroidManifest.xml
-          grep -q 'READ_CONTACTS' "$M" || sed -i 's#<application#<uses-permission android:name="android.permission.READ_CONTACTS"/>\n    <application#' "$M"
       - name: Build the signed release APK
         script: |
           # Fresh keystore per build (fixed password). NOTE: signing key changes each
