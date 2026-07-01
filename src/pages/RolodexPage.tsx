@@ -187,15 +187,30 @@ export default function RolodexPage() {
 }
 
 // ── chrome ────────────────────────────────────────────────────────────────────
+// "ReDEFINE CALL TIME" wordmark in the ReDEFINE Politics brand style: Re red,
+// DEFINE blue, second line black, heavy bold uppercase with a soft drop shadow.
+function BrandMark() {
+  const base: React.CSSProperties = {
+    fontFamily: "'Archivo', 'Arial Black', system-ui, sans-serif", fontWeight: 900,
+    fontStyle: 'italic', letterSpacing: '-0.01em', lineHeight: 0.92,
+    textShadow: '1.5px 1.5px 0 rgba(0,0,0,0.22)', textTransform: 'uppercase',
+  }
+  return (
+    <div aria-label="ReDefine Call Time" style={base}>
+      <div style={{ fontSize: 17 }}>
+        <span style={{ color: RED, textTransform: 'none' }}>Re</span><span style={{ color: BLUE }}>DEFINE</span>
+      </div>
+      <div style={{ fontSize: 17, color: INK }}>CALL TIME</div>
+    </div>
+  )
+}
+
 function Header({ client }: { client: ClientInfo | null }) {
   return (
     <header style={{ background: '#fff', borderBottom: '1px solid #e6e8ec', position: 'sticky', top: 0, zIndex: 10, paddingTop: 'env(safe-area-inset-top)' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <img src="/logo.png" alt="ReDEFINE Politics" style={{ height: 26, width: 'auto' }} />
-        <div style={{ lineHeight: 1.15 }}>
-          <div style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: 15 }}>Call Time</div>
-          {client?.candidate && <div style={{ fontSize: 11, color: MUTED }}>{client.candidate}</div>}
-        </div>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '9px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <BrandMark />
+        {client?.candidate && <div style={{ fontSize: 11, color: MUTED, textAlign: 'right', maxWidth: '48%', lineHeight: 1.2 }}>{client.candidate}</div>}
       </div>
     </header>
   )
