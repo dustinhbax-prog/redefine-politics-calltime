@@ -39,6 +39,10 @@ workflows:
           MSG="Call Time matches the people in your contacts to donor profiles so you can call from a ranked list. Your contacts stay private to your own call list."
           /usr/libexec/PlistBuddy -c "Add :NSContactsUsageDescription string \"$MSG\"" "$PLIST" 2>/dev/null \
             || /usr/libexec/PlistBuddy -c "Set :NSContactsUsageDescription \"$MSG\"" "$PLIST"
+          # App only uses standard HTTPS (exempt) → declare it so TestFlight never
+          # prompts for export compliance on each build.
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
       - name: Set up code signing
         script: |
           keychain initialize

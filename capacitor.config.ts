@@ -8,6 +8,15 @@ const config: CapacitorConfig = {
   appId: 'info.redefinepolitics.calltime',
   appName: 'Call Time',
   webDir: 'dist',
+  // Load the app from the live site INSIDE the native shell. This keeps the web
+  // content same-origin with the API (so /api/* calls reach the backend — a
+  // bundled capacitor://localhost origin can't) while the native Contacts plugin
+  // still bridges in (isNativePlatform() stays true). Bonus: web deploys update
+  // the app instantly, no new TestFlight build needed for UI changes.
+  server: {
+    url: 'https://app.redefinepolitics.info/rolodex',
+    cleartext: false,
+  },
   ios: {
     contentInset: 'always',
   },
