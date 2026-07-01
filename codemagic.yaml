@@ -33,6 +33,10 @@ workflows:
         script: |
           [ -d ios ] || npx cap add ios
           npx cap sync ios
+      - name: Generate the app icon
+        script: |
+          # Build the iOS AppIcon set from resources/icon.png (the brand red-phone icon).
+          npx @capacitor/assets generate --ios --iconBackgroundColor '#ce1b2c' --iconBackgroundColorDark '#ce1b2c'
       - name: Add the Contacts permission string
         script: |
           PLIST=ios/App/App/Info.plist
