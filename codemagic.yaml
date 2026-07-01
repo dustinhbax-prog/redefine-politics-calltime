@@ -42,9 +42,15 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          # Create the iOS distribution certificate + App Store provisioning profile
-          # for this bundle id if they don't exist yet (fresh Apple account), then
-          # install them so Xcode can sign. Auth comes from the AppStoreKey integration.
+          # A prior build left an orphan distribution certificate in the account whose
+          # private key isn't on this ephemeral machine. Revoke unusable distribution
+          # certs (this account is dedicated to this app) and create one fresh WITH a
+          # private key, so signing has a usable cert+key pair.
+          for cid in $(app-store-connect list-certificates --type IOS_DISTRIBUTION --json 2>/dev/null | python3 -c "import sys,json;[print(c['id']) for c in json.load(sys.stdin)]" 2>/dev/null); do
+            app-store-connect delete-certificate "$cid" || true
+          done
+          app-store-connect create-certificate --type IOS_DISTRIBUTION --save
+          # Create/fetch the App Store provisioning profile for the bundle id + install.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
