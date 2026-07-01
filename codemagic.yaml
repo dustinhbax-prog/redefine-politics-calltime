@@ -88,3 +88,47 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+
+  # ── Android APK (sideloadable download, no Play Store) ──────────────────────
+  # Builds on Linux (no Mac needed). Produces a signed release APK artifact that
+  # we host on the VPS for direct download.
+  android-calltime:
+    name: Call Time Android
+    instance_type: linux_x2
+    max_build_duration: 45
+    environment:
+      vars:
+        VITE_APP_PASSWORD: "calltime"
+      node: 20
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build the web app
+        script: npm run build
+      - name: Add & sync the Android platform
+        script: |
+          [ -d android ] || npx cap add android
+          npx cap sync android
+      - name: Generate the app icon
+        script: npx @capacitor/assets generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff'
+      - name: Ensure the Contacts permission is declared
+        script: |
+          M=android/app/src/main/AndroidManifest.xml
+          grep -q 'READ_CONTACTS' "$M" || sed -i 's#<application#<uses-permission android:name="android.permission.READ_CONTACTS"/>\n    <application#' "$M"
+      - name: Build the signed release APK
+        script: |
+          # Fresh keystore per build (fixed password). NOTE: signing key changes each
+          # build, so updating an installed APK needs a reinstall — fine for MVP; swap
+          # to a persistent keystore later for seamless updates.
+          KS="$CM_BUILD_DIR/calltime.keystore"
+          keytool -genkeypair -v -keystore "$KS" -alias calltime -keyalg RSA -keysize 2048 \
+            -validity 10000 -storepass calltimekey -keypass calltimekey \
+            -dname "CN=ReDefine Call Time, O=ReDefine Politics, C=US"
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file="$KS" \
+            -Pandroid.injected.signing.store.password=calltimekey \
+            -Pandroid.injected.signing.key.alias=calltime \
+            -Pandroid.injected.signing.key.password=calltimekey
+    artifacts:
+      - android/app/build/outputs/**/*.apk
