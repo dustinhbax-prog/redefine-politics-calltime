@@ -113,18 +113,24 @@ workflows:
         script: npx @capacitor/assets generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff'
       - name: Build the signed release APK
         script: |
-          # Capacitor 7 Android needs JDK 21.
-          export JAVA_HOME=$(/usr/libexec/java_home -v 21)
-          echo "Using JDK: $JAVA_HOME"
-          # Fresh keystore per build (fixed password). NOTE: signing key changes each
-          # build, so updating an installed APK needs a reinstall — fine for MVP; swap
-          # to a persistent keystore later for seamless updates.
+          set -e
+          # Capacitor 7's Android library requires JDK 21. Find it, or install it.
+          export JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null || true)
+          if [ -z "$JAVA_HOME" ]; then
+            echo "JDK 21 not preinstalled; installing via brew..."
+            brew install --quiet openjdk@21
+            export JAVA_HOME="$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home"
+          fi
+          echo "JAVA_HOME=$JAVA_HOME"; "$JAVA_HOME/bin/java" -version
+          # Fresh keystore per build (fixed password). Signing key changes each build,
+          # so updating an installed APK needs a reinstall — fine for MVP.
           KS="$CM_BUILD_DIR/calltime.keystore"
-          keytool -genkeypair -v -keystore "$KS" -alias calltime -keyalg RSA -keysize 2048 \
+          "$JAVA_HOME/bin/keytool" -genkeypair -v -keystore "$KS" -alias calltime -keyalg RSA -keysize 2048 \
             -validity 10000 -storepass calltimekey -keypass calltimekey \
             -dname "CN=ReDefine Call Time, O=ReDefine Politics, C=US"
           cd android
           ./gradlew assembleRelease \
+            -Dorg.gradle.java.home="$JAVA_HOME" \
             -Pandroid.injected.signing.store.file="$KS" \
             -Pandroid.injected.signing.store.password=calltimekey \
             -Pandroid.injected.signing.key.alias=calltime \
