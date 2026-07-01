@@ -87,8 +87,20 @@ export default function RolodexPage() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/rolodex-sw.js', { scope: '/rolodex' }).catch(() => { /* noop */ })
     }
+    // Cover the safe areas so env(safe-area-inset-*) resolves (fixes the fixed
+    // header/footer jutting under the iOS notch + home indicator), and paint the
+    // body bg so scroll-bounce never reveals a white gutter.
+    const vp = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null
+    const prevVp = vp ? vp.getAttribute('content') : null
+    if (vp && prevVp && !prevVp.includes('viewport-fit')) vp.setAttribute('content', `${prevVp}, viewport-fit=cover`)
+    const prevBodyBg = document.body.style.background
+    document.body.style.background = '#f5f6f8'
+    document.documentElement.style.background = '#f5f6f8'
     return () => {
       added.forEach(el => el.remove())
+      if (vp && prevVp) vp.setAttribute('content', prevVp)
+      document.body.style.background = prevBodyBg
+      document.documentElement.style.background = ''
       if (appleIcon && prevAppleHref) appleIcon.setAttribute('href', prevAppleHref)
       // Restore the app's theme/title in case the user navigates back into the
       // SPA client-side (the forced 'day' theme must not leak into the app).
@@ -152,7 +164,7 @@ export default function RolodexPage() {
   if (stage === 'enterCode') return <Splash><CodeEntry onSubmit={submitCode} error={error} /></Splash>
 
   return (
-    <div style={{ background: '#f5f6f8', minHeight: '100dvh', color: INK, fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ background: '#f5f6f8', minHeight: '100dvh', color: INK, fontFamily: 'Inter, system-ui, sans-serif', overflowX: 'hidden', width: '100%' }}>
       <Header client={client} />
       <main style={{ maxWidth: 640, margin: '0 auto', padding: '12px 14px 96px' }}>
         {error && stage !== 'matching' && (
@@ -162,7 +174,7 @@ export default function RolodexPage() {
         {stage === 'matching' && <Splash inline><Spinner /><p role="status" style={{ color: MUTED, marginTop: 14 }}>{busyMsg}</p></Splash>}
         {stage === 'results' && (
           <Results
-            cards={cards} submitted={submitted} client={client!} token={token}
+            cards={cards} submitted={submitted}
             onOpen={setOpen} onRescan={() => { setStage('home'); setCards([]) }}
           />
         )}
@@ -177,7 +189,7 @@ export default function RolodexPage() {
 // ── chrome ────────────────────────────────────────────────────────────────────
 function Header({ client }: { client: ClientInfo | null }) {
   return (
-    <header style={{ background: '#fff', borderBottom: '1px solid #e6e8ec', position: 'sticky', top: 0, zIndex: 10 }}>
+    <header style={{ background: '#fff', borderBottom: '1px solid #e6e8ec', position: 'sticky', top: 0, zIndex: 10, paddingTop: 'env(safe-area-inset-top)' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <img src="/logo.png" alt="ReDEFINE Politics" style={{ height: 26, width: 'auto' }} />
         <div style={{ lineHeight: 1.15 }}>
@@ -330,8 +342,8 @@ function ImportPanel({ onContacts, setError }: { onContacts: (c: RawContact[]) =
 type SortKey = 'day' | 'ask' | 'ev' | 'loyal'
 const MIN_ASKS = [0, 25, 50, 100, 250]
 
-function Results({ cards, submitted, client, token, onOpen, onRescan }: {
-  cards: RolodexCard[]; submitted: number; client: ClientInfo; token: string
+function Results({ cards, submitted, onOpen, onRescan }: {
+  cards: RolodexCard[]; submitted: number
   onOpen: (c: RolodexCard) => void; onRescan: () => void
 }) {
   const [lean, setLean] = useState<'all' | 'DEM' | 'REP' | 'other'>('all')
@@ -340,9 +352,6 @@ function Results({ cards, submitted, client, token, onOpen, onRescan }: {
   const [issue, setIssue] = useState('')
   const [industry, setIndustry] = useState('')
   const [sort, setSort] = useState<SortKey>('day')
-  const [consent, setConsent] = useState(client.consent_share)
-  const [saved, setSaved] = useState<number | null>(null)
-  const [saveErr, setSaveErr] = useState('')
   const today = DOW[new Date().getDay()]
 
   const issueOpts = useMemo(() => {
@@ -374,16 +383,6 @@ function Results({ cards, submitted, client, token, onOpen, onRescan }: {
     }
     return [...list].sort(cmp[sort])
   }, [cards, lean, minAsk, todayOnly, issue, industry, sort])
-
-  const contributable = useMemo(() => cards.filter(c => c.phone || c.email), [cards])
-  const doSave = async () => {
-    const payload = contributable.map(c => ({
-      contributor_key: c.contributor_key, name: c.contact_name, phone: c.phone || undefined, email: c.email || undefined,
-    }))
-    setSaveErr('')
-    try { const r = await rolodexApi.saveContacts(token, payload); setSaved(r.saved) }
-    catch { setSaveErr('Could not add to the shared database — check your connection and try again.') }
-  }
 
   return (
     <>
@@ -438,22 +437,6 @@ function Results({ cards, submitted, client, token, onOpen, onRescan }: {
           </div>
         )}
       </div>
-
-      {/* consent / contribute */}
-      {contributable.length > 0 && (
-        <div style={{ ...cardStyle, padding: 12, marginBottom: 12, fontSize: 13 }}>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
-            <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)}
-              style={{ marginTop: 3, width: 18, height: 18 }} />
-            <span>Help build the shared contact database with the phone numbers I have for these donors.</span>
-          </label>
-          {consent && saved == null && (
-            <button onClick={doSave} style={{ ...ghostBtn, marginTop: 8 }}>Contribute {contributable.length} contacts</button>
-          )}
-          {saved != null && <p role="status" style={{ color: '#1d7a3d', marginTop: 8 }}>✓ {saved} contacts added to the shared database.</p>}
-          {saveErr && <p role="alert" style={{ color: '#8a121e', marginTop: 8 }}>{saveErr}</p>}
-        </div>
-      )}
 
       {/* list */}
       {shown.length === 0
@@ -560,13 +543,20 @@ function DetailSheet({ card, token, client, onClose }: {
 
   const p = partyStyle(card.party)
   const ask = data?.ask?.primary
+  // Candidate name (strip a "… for HD-59" suffix) + donate link, for the ActBlue
+  // button and the auto-drafted text message.
+  const candidateName = (client.candidate || client.name || 'our campaign').split(/\s+for\s+/i)[0].trim()
+  const donateUrl = client.fundraising_url || ''
   const tel = card.phone ? `tel:${card.phone.replace(/[^\d+]/g, '')}` : null
-  const sms = card.phone ? `sms:${card.phone.replace(/[^\d+]/g, '')}` : null
+  const smsBody = `Hi, it's ${candidateName}! Thanks so much for taking my call.` +
+    (donateUrl ? ` If you're able to chip in to the campaign, here's my link: ${donateUrl}` : '') +
+    ` It truly makes a difference — thank you!`
+  const sms = card.phone ? `sms:${card.phone.replace(/[^\d+]/g, '')}&body=${encodeURIComponent(smsBody)}` : null
 
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Call script for ${titleCase(card.name)}`}
       style={{ position: 'fixed', inset: 0, background: '#f5f6f8', zIndex: 50, overflowY: 'auto', color: INK }}>
-      <div style={{ position: 'sticky', top: 0, background: '#fff', borderBottom: '1px solid #e6e8ec', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ position: 'sticky', top: 0, background: '#fff', borderBottom: '1px solid #e6e8ec', padding: '10px 14px', paddingTop: 'calc(10px + env(safe-area-inset-top))', display: 'flex', alignItems: 'center', gap: 10 }}>
         <button ref={closeRef} onClick={onClose} aria-label="Close" style={{ ...iconBtn }}>✕</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: 16, lineHeight: 1.1 }}>{titleCase(card.name)}</div>
@@ -584,10 +574,20 @@ function DetailSheet({ card, token, client, onClose }: {
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '14px 14px 120px' }}>
         {/* one-tap reach */}
         {card.phone && (
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
             <a href={tel!} style={{ ...primaryBtn, flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>📞 Call {card.phone}</a>
-            <a href={sms!} aria-label="Text" style={{ ...ghostBtn, width: 56, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬</a>
+            <a href={sms!} aria-label="Text a donation ask" style={{ ...ghostBtn, width: 56, marginTop: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💬</a>
           </div>
+        )}
+        {/* take a donation on the spot */}
+        {donateUrl && (
+          <a href={donateUrl} target="_blank" rel="noopener noreferrer"
+            aria-label="Open ActBlue to take a donation"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
+              minHeight: 48, background: BLUE, color: '#fff', borderRadius: 10, fontWeight: 700, fontSize: 15,
+              textDecoration: 'none', marginBottom: 14 }}>
+            💙 Take a donation now (ActBlue)
+          </a>
         )}
 
         {/* recommended ask ladder */}
@@ -651,7 +651,7 @@ function DetailSheet({ card, token, client, onClose }: {
       </div>
 
       {/* outcome logging — sticky footer */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e6e8ec', padding: '10px 14px', zIndex: 51 }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e6e8ec', padding: '10px 14px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom))', zIndex: 51 }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           {logged ? (
             <p role="status" style={{ textAlign: 'center', color: '#1d7a3d', fontWeight: 600, margin: 0 }}>{logged} <button onClick={() => setLogged(null)} style={linkBtn}>log another</button></p>

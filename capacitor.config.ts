@@ -6,7 +6,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 // "Allow access to Contacts?" permission the web can't offer.
 const config: CapacitorConfig = {
   appId: 'info.redefinepolitics.calltime',
-  appName: 'ReDefine Call Time',
+  appName: 'Call Time',
   webDir: 'dist',
   // Load the app from the live site INSIDE the native shell. This keeps the web
   // content same-origin with the API (so /api/* calls reach the backend — a
@@ -18,7 +18,10 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: 'always',
+    // 'never' lets the web content go edge-to-edge under the status bar / home
+    // indicator so our CSS safe-area insets control layout — fixes the fixed
+    // header/footer jutting and the list showing behind the profile overlay.
+    contentInset: 'never',
   },
   android: {
     backgroundColor: '#ce1b2c',
