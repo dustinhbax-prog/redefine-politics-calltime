@@ -188,21 +188,11 @@ export default function RolodexPage() {
 
 // ── chrome ────────────────────────────────────────────────────────────────────
 // "ReDEFINE CALL TIME" wordmark in the ReDEFINE Politics brand style: Re red,
-// DEFINE blue, second line black, heavy bold uppercase with a soft drop shadow.
+// DEFINE blue, CALL TIME black. Rendered as SVG so both lines are forced to the
+// EXACT same width (textLength), giving the squared-off, aligned look of the logo.
 function BrandMark() {
-  const base: React.CSSProperties = {
-    fontFamily: "'Archivo', 'Arial Black', system-ui, sans-serif", fontWeight: 900,
-    fontStyle: 'italic', letterSpacing: '-0.01em', lineHeight: 0.92,
-    textShadow: '1.5px 1.5px 0 rgba(0,0,0,0.22)', textTransform: 'uppercase',
-  }
-  return (
-    <div aria-label="ReDefine Call Time" style={base}>
-      <div style={{ fontSize: 17 }}>
-        <span style={{ color: RED, textTransform: 'none' }}>Re</span><span style={{ color: BLUE }}>DEFINE</span>
-      </div>
-      <div style={{ fontSize: 17, color: INK }}>CALL TIME</div>
-    </div>
-  )
+  // The real ReDEFINE CALLTIME logo (client-provided, trimmed to the wordmark).
+  return <img src="/calltime-logo.png" alt="ReDefine Call Time" style={{ height: 38, width: 'auto', display: 'block' }} />
 }
 
 function Header({ client }: { client: ClientInfo | null }) {
