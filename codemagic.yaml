@@ -113,6 +113,9 @@ workflows:
         script: npx @capacitor/assets generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff'
       - name: Build the signed release APK
         script: |
+          # Capacitor 7 Android needs JDK 21.
+          export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+          echo "Using JDK: $JAVA_HOME"
           # Fresh keystore per build (fixed password). NOTE: signing key changes each
           # build, so updating an installed APK needs a reinstall — fine for MVP; swap
           # to a persistent keystore later for seamless updates.
