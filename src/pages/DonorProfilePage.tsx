@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable'
 import Tooltip from '../components/Tooltip'
 import HoverBubbles from '../components/HoverBubbles'
 import DistrictMiniMap from '../components/DistrictMiniMap'
+import MapKitMap from '../components/MapKitMap'
 import { getClientCandidate, setClientCandidate, candidateLabel, candidateParams } from '../lib/clientCandidate'
 import CallsheetLauncher from '../components/CallsheetLauncher'
 import FundraisingLauncher from '../components/FundraisingLauncher'
@@ -133,20 +134,6 @@ const ISSUE_ORDER = [
   'economic_reform','marijuana_reform','environmental_climate','immigration_reform',
   'national_security','ai_tech_reform','energy_utility','police_reform','israel_international',
 ]
-
-function DirectionBar({ direction, confidence }: { direction: number; confidence: number }) {
-  const w = Math.abs(direction) * 50
-  const left = direction < 0 ? ((direction + 1) / 2) * 100 : 50
-  return (
-    <div className="relative w-full h-1.5 bg-terminal-border rounded overflow-hidden">
-      <div className="absolute top-0 bottom-0 w-px bg-terminal-muted/40" style={{ left: '50%' }} />
-      <div
-        className={`absolute top-0 bottom-0 rounded ${direction >= 0 ? 'bg-terminal-green' : 'bg-terminal-red'}`}
-        style={{ left: `${left}%`, width: `${w}%`, opacity: Math.max(0.25, confidence) }}
-      />
-    </div>
-  )
-}
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
@@ -639,7 +626,7 @@ export default function DonorProfilePage() {
       if (m) {
         const [y, mo, da] = dob.includes('-') ? [+m[1], +m[2], +m[3]] : [+m[3], +m[1], +m[2]]
         const t = new Date()
-        let a = t.getFullYear() - y - ((t.getMonth() + 1 < mo || (t.getMonth() + 1 === mo && t.getDate() < da)) ? 1 : 0)
+        const a = t.getFullYear() - y - ((t.getMonth() + 1 < mo || (t.getMonth() + 1 === mo && t.getDate() < da)) ? 1 : 0)
         if (a > 0 && a < 120) return String(a)
       }
     }
@@ -709,14 +696,14 @@ export default function DonorProfilePage() {
   // The donation address is "legacy" only when an authoritative one exists AND differs.
   const norm = (s: string) => s.replace(/[^a-z0-9]/gi, '').toLowerCase()
   const addrIsLegacy = !!authAddress && !!fullAddress && norm(authAddress) !== norm(fullAddress)
-  const authStreetViewUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(authAddress)}`
+  const authMapUrl = `https://maps.apple.com/?q=${encodeURIComponent(authAddress)}`
 
-  // Street View link — only when the address is fully present (street+city+state+zip).
-  // Prefer the geocoded coords (drops straight into the pano); else search the address.
+  // Apple Maps link — only when the address is fully present (street+city+state+zip).
+  // Prefer the geocoded coords (drops a pin on the exact spot); else search the address.
   const hasFullAddress = !!(addrStreet && addrCity && addrState && addrZip)
-  const streetViewUrl = (dist?.latitude != null && dist?.longitude != null)
-    ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${dist.latitude},${dist.longitude}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`
+  const mapUrl = (dist?.latitude != null && dist?.longitude != null)
+    ? `https://maps.apple.com/?ll=${dist.latitude},${dist.longitude}&q=${encodeURIComponent(fullAddress)}`
+    : `https://maps.apple.com/?q=${encodeURIComponent(fullAddress)}`
 
   // District display: show the bar when matched with at least one district, else a reason badge.
   const hasDistrict = !!(dist && (dist.us_house_district || dist.mo_house_district || dist.mo_senate_district))
@@ -979,8 +966,8 @@ export default function DonorProfilePage() {
           </div>
           {/* Address — full width beneath the name + contact cards. */}
           {authAddress && (
-            <a href={authStreetViewUrl} target="_blank" rel="noreferrer"
-              title="Current address from the verifying public record"
+            <a href={authMapUrl} target="_blank" rel="noreferrer"
+              title="Current address from the verifying public record — open in Apple Maps"
               className="block text-terminal-green/90 hover:text-terminal-green hover:underline text-xs tracking-wide transition-colors">
               {authAddress} <span className="text-terminal-green text-[10px]">✓ current</span>
             </a>
@@ -989,16 +976,23 @@ export default function DonorProfilePage() {
               When a verified address exists we show that one alone (no duplicate). */}
           {!authAddress && fullAddress && (
             hasFullAddress ? (
-              <a href={streetViewUrl} target="_blank" rel="noreferrer"
-                title={addrIsLegacy ? 'Address on file from donation records (may be outdated)' : 'Open Street View for this address'}
+              <a href={mapUrl} target="_blank" rel="noreferrer"
+                title={addrIsLegacy ? 'Address on file from donation records (may be outdated)' : 'Open in Apple Maps'}
                 className="block text-terminal-muted hover:text-terminal-accent hover:underline text-xs tracking-wide transition-colors">
-                {fullAddress} {addrIsLegacy ? <span className="text-[10px] text-terminal-muted">· on file (donations)</span> : <span className="text-terminal-accent">🛣</span>}
+                {fullAddress} {addrIsLegacy ? <span className="text-[10px] text-terminal-muted">· on file (donations)</span> : <span className="text-terminal-accent">📍</span>}
               </a>
             ) : (
               <div className="text-terminal-muted text-xs tracking-wide">
                 {fullAddress}{addrIsLegacy ? <span className="text-[10px]"> · on file (donations)</span> : ''}
               </div>
             )
+          )}
+          {/* Apple Maps pin — only when we have geocoded coordinates. */}
+          {dist?.latitude != null && dist?.longitude != null && (
+            <MapKitMap
+              lat={dist.latitude} lon={dist.longitude}
+              label={authAddress || fullAddress || undefined}
+              className="w-full h-32 rounded border border-terminal-border overflow-hidden mt-1.5" />
           )}
         </div>
           </div>

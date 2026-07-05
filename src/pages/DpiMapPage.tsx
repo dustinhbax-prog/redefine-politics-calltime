@@ -8,10 +8,15 @@ import DataSourcesCredit from '../components/DataSourcesCredit'
    restyled to the ReDEFINE theme tokens (terminal-* / brand). Map engine is
    imperative on refs; the sidebar / legend / info panel are themed React. */
 
-const DATA = '/dpi-data'
-const MO_BOUNDS: [[number, number], [number, number]] = [[-95.95, 35.85], [-88.95, 40.75]]
+// Multi-state: the selected state comes from ?state=XX (default MO); switching
+// state reloads the page with a new param, so the map cleanly initializes for one
+// state per load. Per-state data lives under /dpi-data/<PO>/.
+const CUR_STATE = ((typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('state') : '') || 'MO').toUpperCase()
+const DATA = `/dpi-data/${CUR_STATE}`
+const DEFAULT_BOUNDS: [[number, number], [number, number]] = [[-95.95, 35.85], [-88.95, 40.75]]
 
 type Lvl = { id: string; label: string }
+// Default (Missouri) level/sub lists; a state's meta.json may override via meta.levels / meta.subs.
 const LEVELS: Lvl[] = [
   { id: 'county', label: 'County' }, { id: 'house', label: 'State House' },
   { id: 'senate', label: 'State Senate' }, { id: 'cd2025', label: 'Congress ’25' },
@@ -107,6 +112,15 @@ export default function DpiMapPage() {
   const cache = useRef<Record<string, any>>({})
   const meta = useRef<any>(null)
   const st = useRef({ topLevel: 'county', mode: 'state', selFips: '', activeSub: 'precinct', metric: 'dpi', forecast: false })
+  // Multi-state runtime: bounds + the effective level/sub id lists for the loaded
+  // state (default MO's; overridden from meta.json). Refs so callbacks read current.
+  const boundsRef = useRef<[[number, number], [number, number]]>(DEFAULT_BOUNDS)
+  const LV = useRef<string[]>(LEVELS.map(l => l.id))
+  const SB = useRef<string[]>(SUBS.map(s => s.id))
+  const SBL = useRef<Lvl[]>(SUBS) // full {id,label} subs list for the loaded state (drill-down UI)
+  const [levels, setLevels] = useState<Lvl[]>(LEVELS)
+  const [statesList, setStatesList] = useState<{ po: string; name: string }[]>([])
+  const [stateName, setStateName] = useState('Missouri')
 
   const [topLevel, setTopLevel] = useState('county')
   const [metric, setMetric] = useState('dpi')
@@ -164,7 +178,7 @@ export default function DpiMapPage() {
       if (map.current!.getLayer(id)) map.current!.setLayoutProperty(id, 'visibility', vis ? 'visible' : 'none')
     })
   }
-  const hideAll = () => [...LEVELS.map(l => l.id), ...SUBS.map(s => s.id)].forEach(l => { if (added.current[l]) setVisible(l, false) })
+  const hideAll = () => [...LV.current, ...SB.current].forEach(l => { if (added.current[l]) setVisible(l, false) })
 
   const bboxOfFeature = (ft: any): [[number, number], [number, number]] => {
     let xmin = 180, ymin = 90, xmax = -180, ymax = -90
@@ -245,13 +259,13 @@ export default function DpiMapPage() {
     await ensure(level)
     hideAll(); setVisible(level, true)
     refreshSeats({ clear: true })
-    map.current!.fitBounds(MO_BOUNDS, { padding: 30, duration: 700 })
+    map.current!.fitBounds(boundsRef.current, { padding: 30, duration: 700 })
   }, [ensure, refreshSeats])
 
   const showSub = useCallback(async (sub: string) => {
     st.current.activeSub = sub; setActiveSub(sub)
     await ensure(sub)
-    SUBS.forEach(s => { if (added.current[s.id]) setVisible(s.id, false) })
+    SB.current.forEach(id => { if (added.current[id]) setVisible(id, false) })
     setVisible(sub, true)
     let filt: any
     if (sub === 'school') {
@@ -267,26 +281,26 @@ export default function DpiMapPage() {
     st.current.selFips = fips; st.current.mode = 'county'
     setMode('county'); setSelName(meta.current.fips2name[fips] || fips)
     setInfo(prop); setInfoLevel('county')
-    const avail = SUBS.filter(s => s.id !== 'county_elec' || meta.current.ce_counties.includes(fips))
+    const avail = SBL.current.filter(s => s.id !== 'county_elec' || (meta.current.ce_counties || []).includes(fips))
     setSubList(avail)
-    if (!avail.find(s => s.id === st.current.activeSub)) st.current.activeSub = 'precinct'
+    if (!avail.find(s => s.id === st.current.activeSub) && avail.length) st.current.activeSub = avail[0].id
     setVisible('county', false)
     await showSub(st.current.activeSub)
     const f = (cache.current.county.features || []).find((x: any) => x.properties.key === fips)
-    map.current!.fitBounds(f ? bboxOfFeature(f) : MO_BOUNDS, { padding: 40, duration: 800 })
+    map.current!.fitBounds(f ? bboxOfFeature(f) : boundsRef.current, { padding: 40, duration: 800 })
   }, [showSub])
 
   const applyMetric = useCallback((mid: string) => {
     st.current.metric = mid; setMetric(mid)
     const expr = colorExprFor(mid)
-    ;[...LEVELS.map(l => l.id), ...SUBS.map(s => s.id)].forEach(L => { if (added.current[L]) map.current!.setPaintProperty(`${L}-fill`, 'fill-color', expr) })
+    ;[...LV.current, ...SB.current].forEach(L => { if (added.current[L]) map.current!.setPaintProperty(`${L}-fill`, 'fill-color', expr) })
   }, [])
 
   const wireEvents = (level: string) => {
     const m = map.current!, fill = `${level}-fill`
     m.on('mousemove', fill, (e: any) => {
       if (!e.features.length) return
-      m.getCanvas().style.cursor = (level === 'county' && st.current.mode === 'state') ? 'zoom-in' : 'pointer'
+      m.getCanvas().style.cursor = (level === 'county' && st.current.mode === 'state' && SB.current.length) ? 'zoom-in' : 'pointer'
       const p = e.features[0].properties
       m.setFilter(`${level}-hover`, ['==', ['get', 'key'], p.key])
       const dpi = p.dpi == null ? '—' : (+p.dpi).toFixed(1)
@@ -301,7 +315,8 @@ export default function DpiMapPage() {
     m.on('click', fill, (e: any) => {
       if (!e.features.length) return
       const p = e.features[0].properties
-      if (level === 'county' && st.current.mode === 'state') { drillInto(p); return }
+      // drill into a county only when this state actually has sub-county layers
+      if (level === 'county' && st.current.mode === 'state' && SB.current.length) { drillInto(p); return }
       setInfo(p); setInfoLevel(level)
     })
   }
@@ -312,28 +327,51 @@ export default function DpiMapPage() {
     // load the statewide summary immediately (independent of map/WebGL init) so the panel fills instantly
     // no-cache: revalidate these data files every load so a redeploy's new numbers show
     // immediately (they're served with a long max-age, which otherwise pins a stale copy).
-    fetch(`${DATA}/meta.json`, { cache: 'no-cache' }).then(r => r.json()).then(j => { meta.current = j; setStateStats(j.state) }).catch(() => {})
+    const applyMeta = (j: any) => {
+      meta.current = j; setStateStats(j.state)
+      if (j.bounds) boundsRef.current = j.bounds
+      if (j.name) setStateName(j.name)
+      if (Array.isArray(j.levels) && j.levels.length) { setLevels(j.levels); LV.current = j.levels.map((l: Lvl) => l.id) }
+      if (Array.isArray(j.subs)) { SBL.current = j.subs; SB.current = j.subs.map((s: Lvl) => s.id) }
+      else if (j.levels) { SBL.current = []; SB.current = [] }  // state defines levels but no subs -> no drill-down
+    }
+    fetch(`${DATA}/meta.json`, { cache: 'no-cache' }).then(r => r.json()).then(applyMeta).catch(() => {})
     fetch(`${DATA}/races.json`, { cache: 'no-cache' }).then(r => r.json()).then(setRaces).catch(() => {})
+    // state selector: list ONLY states computed + added to the database (the manifest)
+    fetch(`/dpi-data/states.json`, { cache: 'no-cache' }).then(r => r.json())
+      .then((list: any[]) => { setStatesList(list); const s = list.find(x => x.po === CUR_STATE); if (s) setStateName(s.name) })
+      .catch(() => {})
     const m = new maplibregl.Map({
       container: mapEl.current,
       style: { version: 8, sources: { carto: { type: 'raster', tileSize: 256, tiles: basemapTiles(), attribution: '© OpenStreetMap contributors © CARTO' } }, layers: [{ id: 'carto', type: 'raster', source: 'carto' }] },
-      bounds: MO_BOUNDS, fitBoundsOptions: { padding: 30 }, minZoom: 4, maxZoom: 14,
+      bounds: boundsRef.current, fitBoundsOptions: { padding: 30 }, minZoom: 4, maxZoom: 14,
     })
     map.current = m
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
     m.on('load', async () => {
-      if (!meta.current) { meta.current = await (await fetch(`${DATA}/meta.json`, { cache: 'no-cache' })).json(); setStateStats(meta.current.state) }
+      if (!meta.current) applyMeta(await (await fetch(`${DATA}/meta.json`, { cache: 'no-cache' })).json())
+      m.fitBounds(boundsRef.current, { padding: 30, duration: 0 })
       await showLevel('county')
       applyMetric('dpi')
-      // warm the cache for every other layer in the background -> instant switching & drill-down
+      // warm the OTHER layers in the background so switching/drill-down feels instant.
+      // We fetch each into the HTTP cache, but only JSON.parse the small ones up front —
+      // parsing the two heavy geometry layers (precinct ~5.8 MB / cousub ~3.3 MB) on the
+      // main thread was a ~200 ms + ~100 ms jank on every page load. Those two are only
+      // reached via an explicit county drill-down, where ensure() parses them on demand
+      // (behind the existing "Loading…" indicator) off an already-warm HTTP cache.
+      const PARSE_LIMIT = 2_000_000 // bytes of decoded text; above this, warm-cache only (parse lazily)
       const idle: any = (window as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 250))
-      const rest = [...LEVELS.map(l => l.id), ...SUBS.map(s => s.id)].filter(l => l !== 'county')
+      const rest = [...LV.current, ...SB.current].filter(l => l !== 'county')
       let i = 0
       const next = () => {
         if (i >= rest.length) return
         const lv = rest[i++]
         if (cache.current[lv]) return next()
-        fetch(`${DATA}/${lv}.geojson`, { cache: 'no-cache' }).then(r => r.json()).then(j => { cache.current[lv] = j }).catch(() => {}).finally(() => idle(next))
+        fetch(`${DATA}/${lv}.geojson`, { cache: 'no-cache' })
+          .then(r => r.text())
+          .then(txt => { if (txt.length <= PARSE_LIMIT) cache.current[lv] = JSON.parse(txt) })
+          .catch(() => {})
+          .finally(() => idle(next))
       }
       idle(next)
     })
@@ -341,7 +379,7 @@ export default function DpiMapPage() {
     const obs = new MutationObserver(() => {
       if (!map.current || !map.current.getSource('carto')) return
       ;(map.current.getSource('carto') as any).setTiles(basemapTiles())
-      ;[...LEVELS.map(l => l.id), ...SUBS.map(s => s.id)].forEach(L => {
+      ;[...LV.current, ...SB.current].forEach(L => {
         if (added.current[L]) { map.current!.setPaintProperty(`${L}-line`, 'line-color', lineColor()); map.current!.setPaintProperty(`${L}-hover`, 'line-color', hoverColor()) }
       })
     })
@@ -405,7 +443,7 @@ export default function DpiMapPage() {
   )
 
   // ---- data-table panel (selected region, or statewide when nothing selected) ----
-  const sw = stateStats ? { name: 'Missouri — statewide', _state: true, ...stateStats, lean: leanOf(stateStats.dpi) } : null
+  const sw = stateStats ? { name: `${stateName} — statewide`, _state: true, ...stateStats, lean: leanOf(stateStats.dpi) } : null
   const d = info || sw
   const ln = d ? (d.lean || leanOf(d.dpi)) : null
   const lc = (ln && LEANCOLOR[ln]) || 'var(--color-muted)'
@@ -420,7 +458,7 @@ export default function DpiMapPage() {
     { t: 'Partisan lean', r: [
       ['Lean in a presidential year', F(d.dpi_pres), "How Democratic this area votes in a high-turnout presidential year, on a 0–100 scale where 50 is an even split. Above 50 leans Democratic, below 50 leans Republican."],
       ['Lean in a midterm year', F(d.dpi_mid), "The same 0–100 lean score, but for a midterm year like 2026 when turnout is lower. Midterms here usually look a little more Republican than presidential years."],
-      d.vs_state != null && ['Lean vs. state average', SGN(d.vs_state), "How this area's lean compares to Missouri as a whole. A plus means it is more Democratic than the state average, a minus means more Republican, measured in points."],
+      d.vs_state != null && ['Lean vs. state average', SGN(d.vs_state), `How this area's lean compares to ${stateName} as a whole. A plus means it is more Democratic than the state average, a minus means more Republican, measured in points.`],
       d.pvi_vs_nation != null && ['Presidential lean vs. nation', SGN(d.pvi_vs_nation), "How this area's presidential vote compares to the country overall. A minus means it votes more Republican than the nation by that many points."],
       d.elasticity != null && ['Swinginess (1.0 = avg)', F(d.elasticity, 2), "How much this area swings when the national mood shifts. 1.0 is average. Above 1.0 means it moves more than the country in a wave, below 1.0 means it holds steadier."],
       d.lt_pres_trend != null && ['Trend per election cycle', SGN(d.lt_pres_trend) + ' pts', "The direction this area has been drifting each election. A plus means it has been getting more Democratic over time, a minus more Republican, in points per cycle."],
@@ -429,6 +467,13 @@ export default function DpiMapPage() {
       d.dpi_mrp != null && ['Demographic estimate (MRP)', F(d.dpi_mrp) + (d.dpi_mrp_se != null ? ' ± ' + F(d.dpi_mrp_se) : ''), "An independent estimate of this area's lean built only from who lives here — its mix of age, education, race, and sex, learned from large national voter surveys (it never uses past election results). Compare it to the DPI: a gap means the area votes differently than its demographics alone would predict."],
       d.dpi_mrp_resid != null && ['Votes vs. demographics', SGN(d.dpi_mrp_resid) + ' pts', "How this area's actual election results compare to what its demographics predict. A plus means it votes more Democratic than its makeup suggests (an ancestral-Democratic area, like Little Dixie); a minus means more Republican (realigned away)."],
       d.mrp_turnout != null && ['Modeled turnout (MRP)', F(d.mrp_turnout, 0) + '%', "Turnout here estimated from the same demographic survey model — the share of adults likely to vote, based on the area's age, education, and race mix."],
+    ] },
+    { t: 'Campaign viability', r: [
+      d.win_m != null && ['Win number — midterm (2026)', INT(d.win_m), "Votes needed to win here in a midterm like 2026: half the ballots cast in the last comparable midterm (2022) plus one. A campaign builds its vote goal around this number."],
+      d.win_p != null && ['Win number — presidential', INT(d.win_p), "Votes needed to win here in a presidential year: half the ballots cast in the last presidential election (2020) plus one."],
+      d.ballots_mid != null && ['Ballots cast, 2022 midterm', INT(d.ballots_mid), "Total ballots cast here in the 2022 general election — the basis for the midterm win number."],
+      d.ballots_pres != null && ['Ballots cast, 2020 presidential', INT(d.ballots_pres), "Total ballots cast here in the 2020 presidential election."],
+      d.turnout_pct_mid != null && ['Turnout, 2022 midterm', F(d.turnout_pct_mid, 0) + '%', "Share of registered voters who cast a ballot in the 2022 midterm."],
     ] },
     { t: 'Turnout', r: [
       d.turnout_pres != null && ['Turnout, 2024 presidential', F(d.turnout_pres, 0) + '%', "The share of registered voters who actually cast a ballot in the 2024 presidential election here."],
@@ -453,9 +498,9 @@ export default function DpiMapPage() {
       d.party_fill != null && ['Party opt-in rate', F(d.party_fill) + '%', "The share of registered voters here who chose to declare a party at all. Missouri's declaration is optional (since about 2022 only ~6% opt in statewide), so a low rate is normal and this lean is a corroboration signal, not the DPI. " + (d.party_src === 'voterfile' ? "Measured directly from the voter file." : "Allocated from county registration totals.")],
     ] },
     d._state && { t: 'Legislature', r: [
-      ['Counties', String(d.n_counties), "The total number of counties in Missouri."],
-      ['Competitive House seats', `${d.house_tossups} of ${d.n_house}`, "How many of Missouri's state House districts are close enough to be in play, out of the total number of House seats."],
-      ['Competitive Senate seats', `${d.senate_tossups} of ${d.n_senate}`, "How many of Missouri's state Senate districts are close enough to be in play, out of the total number of Senate seats."],
+      ['Counties', String(d.n_counties), `The total number of counties in ${stateName}.`],
+      ['Competitive House seats', `${d.house_tossups} of ${d.n_house}`, `How many of ${stateName}'s state House districts are close enough to be in play, out of the total number of House seats.`],
+      ['Competitive Senate seats', `${d.senate_tossups} of ${d.n_senate}`, `How many of ${stateName}'s state Senate districts are close enough to be in play, out of the total number of Senate seats.`],
     ] },
   ].filter(Boolean).map((s: any) => ({ t: s.t, r: s.r.filter(Boolean) })).filter((s: any) => s.r.length) : []
 
@@ -492,7 +537,10 @@ export default function DpiMapPage() {
     const M: Record<string, [string, string]> = { KC: ['Kansas City Council', 'District ' + num], COL: ['Columbia City Council', 'Ward ' + num], STL: ['St. Louis Aldermen', 'Ward ' + num], SPR: ['Springfield Council', 'Zone ' + num], JC: ['Jefferson City Council', 'Ward ' + num] }
     return M[pre] || ['City Council', num]
   }
-  if (races && d) {
+  // This rich per-office win panel is Missouri-specific (needs the races.xw crosswalk +
+  // MO's slate/seats). States without an xw crosswalk (auto-onboarded via election_plan)
+  // surface win numbers through the "Campaign viability" panel section instead.
+  if (races && races.xw && d) {
     const lvl = info ? infoLevel : 'state'
     const x: any = (races.xw[lvl] || {})[info?.key]
     // single-office / single-filter layers -> show ONLY that race, scoped to the active map filter
@@ -549,13 +597,27 @@ export default function DpiMapPage() {
     <div className="flex flex-col flex-1 min-h-0">
       <TopBarPortal>
         <div className="flex items-stretch divide-x divide-terminal-border h-full w-full">
+          {/* Block 0 — state selector (only states computed + in the database) */}
+          <div className="px-3 py-2 shrink-0 flex flex-col justify-center">
+            <BlockLabel>State</BlockLabel>
+            <select
+              value={CUR_STATE}
+              onChange={e => { const u = new URL(window.location.href); u.searchParams.set('state', e.target.value); window.location.href = u.toString() }}
+              aria-label="Select state"
+              className="mt-1 bg-terminal-panel border border-terminal-border rounded px-2 py-1 text-[12px] font-display font-semibold text-terminal-text focus:outline-none focus:ring-1 focus:ring-terminal-accent cursor-pointer"
+            >
+              {(statesList.length ? statesList : [{ po: CUR_STATE, name: stateName }]).map(s => (
+                <option key={s.po} value={s.po}>{s.name}</option>
+              ))}
+            </select>
+          </div>
           {/* Block 1 — map layer (+ drill-down) */}
           <div className="px-3 py-2 flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1.5 gap-2">
               <BlockLabel>{mode === 'county' ? `Inside ${selName}` : 'Map layer'}</BlockLabel>
               {mode === 'county' && <button onClick={() => showLevel('county')} className="text-[10px] text-terminal-accent hover:underline whitespace-nowrap">← back to state</button>}
             </div>
-            <Seg items={LEVELS} active={topLevel} onPick={showLevel} />
+            <Seg items={levels} active={topLevel} onPick={showLevel} />
             {mode === 'county' && (
               <div className="mt-1.5">
                 <div className="text-[9px] uppercase tracking-widest text-terminal-accent font-semibold mb-1">Within {selName} ▾</div>
