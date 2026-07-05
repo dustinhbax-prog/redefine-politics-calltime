@@ -20,7 +20,7 @@ const TIPS: Record<string, string> = {
   UNKNOWN: 'Party unknown — not enough contribution data to determine a party lean.',
 }
 
-export default function PartyBadge({ party, confidence, size = 'xs' }: Props) {
+export default function PartyBadge({ party, confidence }: Props) {
   if (!party) return <span className="text-terminal-muted">—</span>
   const style = STYLES[party] ?? STYLES.UNKNOWN
   const label = party === 'SPLIT' ? 'SPLIT' : party

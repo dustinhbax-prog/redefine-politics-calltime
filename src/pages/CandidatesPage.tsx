@@ -164,7 +164,7 @@ function CandidateSpending({ committeeId }: { committeeId: string }) {
   )
 }
 
-function ProfilePanel({ candidate, onClose, onSearchDonors }: { candidate: Candidate; onClose: () => void; onSearchDonors: (name: string) => void }) {
+function ProfilePanel({ candidate, onClose }: { candidate: Candidate; onClose: () => void; onSearchDonors: (name: string) => void }) {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<CandidateProfile | null>(null)
   const [loading, setLoading] = useState(true)

@@ -5,7 +5,6 @@ import SettingsPanel from './SettingsPanel'
 import AccessLogModal from './AccessLogModal'
 import SearchLogModal from './SearchLogModal'
 import ExportLogModal from './ExportLogModal'
-import { useSettings } from '../contexts/SettingsContext'
 import { useMorph } from './MorphOverlay'
 import { NAV_SECTIONS, NAV_TOOLS_FLAT } from '../lib/navSections'
 import { TopBarSlotContext } from '../lib/topbar'
@@ -17,7 +16,6 @@ export default function Layout() {
   const [crawling, setCrawling] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showLog, setShowLog] = useState<'ip' | 'search' | 'export' | false>(false)
-  const { theme } = useSettings()
   const morph = useMorph()
 
   // Accordion nav: which section contains the current route, and which are expanded.

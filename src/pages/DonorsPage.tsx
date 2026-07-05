@@ -236,7 +236,7 @@ export default function DonorsPage() {
     // County list for the geographic narrow (shares donor_address_district vocab with prospects).
     fetch('/api/prospects/options').then(r => r.json())
       .then(d => setCounties(d.counties ?? [])).catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [])
 
   const doSearch = async (f: typeof form, forceRandomize = false, targetPage = 1, targetPerPage = perPage) => {

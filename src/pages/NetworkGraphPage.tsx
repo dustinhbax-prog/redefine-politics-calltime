@@ -114,7 +114,7 @@ export default function NetworkGraphPage() {
   const sharedOnlyRef = useRef(false)
   const transformRef = useRef({ x: 0, y: 0, scale: 1 })
   const hoveredRef = useRef<GraphNode | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const simRef = useRef<any>(null)
   const isDragging = useRef(false)
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })

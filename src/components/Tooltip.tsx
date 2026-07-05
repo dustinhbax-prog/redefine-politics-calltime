@@ -68,7 +68,6 @@ export default function Tooltip({ content, children, widthClass = 'max-w-[260px]
 
   return (
     <>
-      {/* @ts-ignore */}
       <child.type
         {...child.props}
         ref={triggerRef}

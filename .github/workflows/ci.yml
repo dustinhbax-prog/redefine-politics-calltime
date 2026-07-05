@@ -1,0 +1,26 @@
+# Web CI: lint + typecheck + tests + production build on every push/PR.
+# (The Android/iOS app builds run on Codemagic — see codemagic.yaml.)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          # build-time only; the real password is set where the site deploys
+          VITE_APP_PASSWORD: ci-build

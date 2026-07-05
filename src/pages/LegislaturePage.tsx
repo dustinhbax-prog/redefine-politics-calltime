@@ -812,44 +812,6 @@ function IndustryResult({ data }: { data: any }) {
   )
 }
 
-function BillDonorsResult({ data }: { data: any }) {
-  const { bill, subjects, sponsors } = data
-  return (
-    <div>
-      <div className="text-terminal-accent font-bold mb-1 font-mono">{bill?.bill_string}</div>
-      <div className="text-terminal-text text-xs mb-1">{bill?.short_title}</div>
-      <div className="text-terminal-muted text-[10px] mb-4">Subjects: {(subjects as string[])?.join(', ') || 'None'}</div>
-      {!sponsors?.length && <div className="text-terminal-muted text-xs">No sponsors found.</div>}
-      <div className="space-y-4">
-        {sponsors?.map((sp: any, i: number) => (
-          <div key={i} className="border border-terminal-border p-3">
-            <div className="flex justify-between items-start mb-2 flex-wrap gap-1">
-              <div>
-                <span className="text-terminal-text font-semibold text-xs">{sp.full_name}</span>
-                <span className="text-terminal-muted text-[10px] ml-2">Dist {sp.district} · {sp.sponsor_type}</span>
-              </div>
-              {sp.total_raised != null
-                ? <span className="text-terminal-green text-xs">Raised: {fmt(sp.total_raised)}</span>
-                : <span className="text-terminal-muted text-[10px]">No MEC link</span>}
-            </div>
-            {sp.top_employer_sectors?.length > 0 && (
-              <>
-                <div className="text-[10px] text-terminal-muted uppercase tracking-wider mb-1">Top donor employers:</div>
-                {sp.top_employer_sectors.slice(0, 6).map((e: any, j: number) => (
-                  <div key={j} className="flex justify-between text-[10px]">
-                    <span className="text-terminal-text">{e.contributor_employer}</span>
-                    <span className="text-terminal-green ml-4">{fmt(e.total)}</span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function ChangesView({ changes, loading }: { changes: any[]; loading: boolean }) {
   if (loading) return <Spinner />
   if (!changes.length) return <div className="text-terminal-muted text-xs py-6 text-center">No recent changes found.</div>

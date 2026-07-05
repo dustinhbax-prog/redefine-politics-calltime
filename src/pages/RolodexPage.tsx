@@ -370,7 +370,7 @@ function Results({ cards, submitted, onOpen, onRescan }: {
   }, [cards])
 
   const shown = useMemo(() => {
-    let list = cards.filter(c => {
+    const list = cards.filter(c => {
       if (lean === 'DEM' && c.party !== 'DEM') return false
       if (lean === 'REP' && c.party !== 'REP') return false
       if (lean === 'other' && (c.party === 'DEM' || c.party === 'REP')) return false
