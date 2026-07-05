@@ -150,7 +150,7 @@ const DEFAULT_TIERS: DonationTier[] = [
   { amount: '$50', suffix: '/ month', impact: 'a radio spot across the county' },
 ]
 
-const DEFAULT_DONATIONS_HEADING = "In a presidential year, $7 is a rounding error. In this race, it's leverage:"
+const DEFAULT_DONATIONS_HEADING = "A few bucks a month goes further in a race this size than you'd think:"
 const DEFAULT_CTA_LABEL = 'CHIP IN TODAY'
 
 interface Brand {
@@ -248,15 +248,15 @@ const MERGE_TAG_RE = /\*\|[A-Z][A-Z0-9_:]*?\|\*/g
 
 const DEFAULT_BODY = `Friend,
 
-We're 12 days from a critical deadline, and I need your help.
+I'll keep this short. I'm running to represent our community, and this campaign runs on small donations from people right here at home. Not corporate PACs.
 
-Our campaign is built by people like you — not corporate PACs. Every dollar goes directly to reaching voters who haven't heard our message yet.
+Every dollar goes straight to reaching voters who haven't heard from us yet. Door hangers, yard signs, a digital ad in a neighbor's feed two streets over.
 
-If you can chip in $10 today, it makes a real difference.
+If you can chip in $10 today, it adds up fast.
 
 [Donate $10 now](https://example.com/donate)
 
-Thank you for standing with us.`
+Thank you for having my back.`
 
 const DEFAULT_SIGNOFF = `— Jane Doe\nCandidate for Missouri State Representative`
 
@@ -462,7 +462,7 @@ function htmlToMarkdown(html: string): string {
   // hyphens, BOM, bidi markers) — these break the "button on its own line"
   // matcher because the line isn't really "alone" once invisible chars are
   // present.
-  out = out.replace(/[​-‏‪-‮⁠﻿­]/g, '')
+  out = out.replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF\u00AD]/g, '')
   // Collapse 3+ blank lines, trim leading/trailing whitespace per line, then trim outer.
   out = out
     .split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n')
@@ -473,7 +473,7 @@ function htmlToMarkdown(html: string): string {
 
 function convertNode(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) {
-    return (node.textContent || '').replace(/[\s ]+/g, ' ')
+    return (node.textContent || '').replace(/[\s\u00A0]+/g, ' ')
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return ''
   const el = node as Element
@@ -629,7 +629,7 @@ function convertNode(node: Node): string {
       const isItalic = !!fsMatch && /italic/.test(fsMatch[1].trim())
       const isUnderline = !!tdMatch && /underline/.test(tdMatch[1])
       const fontSize = fzMatch?.[1]?.trim() || ''
-      let inner = childText()
+      const inner = childText()
       if (!inner.trim()) return inner
       // Don't double-color if the picked color is the default near-black/white
       const isDefaultFg = !fg || /^(black|#000000?|#0{3,6}|rgb\(0,\s*0,\s*0\))$/i.test(fg)
@@ -697,7 +697,7 @@ function processInline(s: string): string {
 
 function escapeStyleValue(s: string): string {
   // Allow only printable ASCII style values to keep email HTML safe.
-  return s.replace(/[^a-zA-Z0-9#(),. %\-]/g, '').slice(0, 60)
+  return s.replace(/[^a-zA-Z0-9#(),. %-]/g, '').slice(0, 60)
 }
 
 // Parse the caption portion of an image token. Format evolved over time:
@@ -1250,6 +1250,36 @@ function mdToEmailHtml(md: string, primaryColor: string, buttonAlignment: Button
   return out.join('\n')
 }
 
+// Dark-mode CSS rules, shared between the exported email <head> (gated behind
+// @media prefers-color-scheme:dark) and the in-app preview (forced on). Uses
+// attribute selectors that match the inline-styled markup buildEmailHtml emits.
+// Brand-colored bands are deliberately left untouched; only the near-white
+// wrapper, body cell, footer, and dark body text get re-tinted so a recipient's
+// dark-mode client (Apple Mail, Outlook 365) doesn't produce an unreadable
+// half-inverted result.
+const DARK_MODE_RULES = `
+  body { background-color: #0d0d0d !important; }
+  table[style*="background-color:#f4f4f4"] td[align="center"] {
+    background-color: #0d0d0d !important;
+  }
+  td[bgcolor="#ffffff"], td[bgcolor="#fff"],
+  td[style*="background-color:#ffffff"], td[style*="background-color: #ffffff"],
+  td[style*="background-color:#fff;"], td[style*="background-color: #fff;"],
+  table[style*="background-color:#ffffff"] {
+    background-color: #1c1c1c !important;
+  }
+  p[style*="color:#1a1a1a"], li, h1, h2, h3, h4, h5, h6 { color: #e5e5e5 !important; }
+  div[style*="color:#888888"], td[style*="color:#888888"] { color: #b0b0b0 !important; }
+  td[style*="background-color:#f9f9f9"] { background-color: #161616 !important; }
+  td[style*="border:1px solid #cccccc"] { border-color: #444 !important; }
+  table[style*="background-color:#ffffff"][style*="border:1px solid #e5dccb"] {
+    background-color: #1f1f1f !important;
+    border-color: #3a3a3a !important;
+  }
+  table[style*="background-color:#ffffff"][style*="border:1px solid #e5dccb"] td[valign="middle"]:not([bgcolor]) {
+    color: #e5e5e5 !important;
+  }`
+
 function buildEmailHtml(opts: {
   subject: string
   preheader: string
@@ -1286,19 +1316,43 @@ function buildEmailHtml(opts: {
     brand.primary_color,
   ]
   const stripColor = pickStripColor(headerBg, stripCandidates)
+  // MEC "Paid for by" disclaimer. This is legally required and must never be
+  // silently omitted or replaced with a vague stand-in. If the brand has no
+  // disclaimer set we deliberately DO NOT fabricate one ("Paid for by
+  // {candidate}" is not compliant — it lacks the treasurer and the registered
+  // committee name). Instead we render an unmistakable placeholder that will
+  // show, in red, in the actual footer, forcing the sender to fix it before
+  // the blast goes out.
+  const paidForBy = (brand.paid_for_by || '').trim()
+  const disclaimerMissing = !paidForBy
+  const disclaimerHtml = disclaimerMissing
+    ? '&#9888; PAID-FOR-BY DISCLAIMER REQUIRED &mdash; add committee name + treasurer in Brand settings before sending'
+    : escapeHtml(paidForBy).replace(/\n/g, '<br>')
+  const disclaimerStyle = disclaimerMissing
+    ? 'margin:0 0 14px;color:#b8252f;font-weight:bold;'
+    : 'margin:0 0 14px;color:#888888;'
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>${escapeHtml(subject)}</title>
+<style>
+  :root { color-scheme: light dark; supported-color-schemes: light dark; }
+  @media (prefers-color-scheme: dark) {${DARK_MODE_RULES}
+  }
+</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Helvetica,Arial,sans-serif;">
 <!-- PREHEADER (hidden text shown in inbox preview) -->
 <div style="display:none;font-size:1px;color:#f4f4f4;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
 ${escapeHtml(preheader)}
 </div>
+<!-- Spacer prevents the client from pulling body copy into the inbox preview snippet -->
+<div style="display:none;font-size:1px;color:#f4f4f4;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f4f4f4;padding:24px 0;">
   <tr><td align="center">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;">
@@ -1328,7 +1382,7 @@ ${signoffHtml}
       <!-- Footer: social row + paid-for-by disclosure + Mailchimp-compliant unsubscribe -->
       <tr><td style="padding:24px 32px;background-color:#f9f9f9;${tertiaryActive ? '' : 'border-top:1px solid #e5e5e5;'}color:#888888;font-size:12px;line-height:1.5;font-family:Helvetica,Arial,sans-serif;text-align:center;">
         ${renderSocialRow(brand, accentColor)}
-        <div style="margin:0 0 14px;color:#888888;">${escapeHtml((brand.paid_for_by || `Paid for by ${candidateName}`).trim()).replace(/\n/g, '<br>')}</div>
+        <div style="${disclaimerStyle}">${disclaimerHtml}</div>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
           <tr><td align="center" style="border:1px solid #cccccc;border-radius:4px;padding:0;">
             <a href="*|UNSUB|*" target="_blank" style="display:inline-block;padding:8px 18px;color:#666666;text-decoration:none;font-size:12px;font-family:Helvetica,Arial,sans-serif;line-height:1.2;">Unsubscribe</a>
@@ -1379,7 +1433,7 @@ export default function EmailBuilderPage({ embedded = false, initialSubject, ini
   const [draftBrand, setDraftBrand] = useState<Brand>(brands[0] || EMPTY_BRAND)
 
   const [subject, setSubject] = useState(initialSubject || 'A note from the campaign')
-  const [preheader, setPreheader] = useState('We need your help before the deadline.')
+  const [preheader, setPreheader] = useState('This campaign runs on small donations from folks right here at home.')
   // Body and sign-off both store HTML (from the rich editors). The DEFAULT_*
   // constants are markdown, so seed with the rendered HTML once.
   const [body, setBody] = useState(() => markdownToDisplayHtml(initialBodyMarkdown || DEFAULT_BODY))
@@ -1527,36 +1581,11 @@ export default function EmailBuilderPage({ embedded = false, initialSubject, ini
   // wrapper, body cell, and dark text get re-tinted.
   const darkPreviewHtml = useMemo(() => {
     if (!previewDark) return html
+    // Forces the same dark rules the exported email applies via
+    // @media(prefers-color-scheme:dark), so the preview matches real dark-mode
+    // rendering. Shares DARK_MODE_RULES with buildEmailHtml to prevent drift.
     const dark = `
-<style>
-  body { background-color: #0d0d0d !important; }
-  /* Outer wrapper bg (was #f4f4f4) */
-  table[style*="background-color:#f4f4f4"] td[align="center"] {
-    background-color: #0d0d0d !important;
-  }
-  /* Inner email container's white cell — invert to a soft dark */
-  td[bgcolor="#ffffff"], td[bgcolor="#fff"],
-  td[style*="background-color:#ffffff"], td[style*="background-color: #ffffff"],
-  td[style*="background-color:#fff;"], td[style*="background-color: #fff;"],
-  table[style*="background-color:#ffffff"] {
-    background-color: #1c1c1c !important;
-  }
-  /* Body paragraphs / lists / headings */
-  p[style*="color:#1a1a1a"], li, h1, h2, h3, h4, h5, h6 { color: #e5e5e5 !important; }
-  /* Footer muted text */
-  div[style*="color:#888888"], td[style*="color:#888888"] { color: #b0b0b0 !important; }
-  /* Footer bg */
-  td[style*="background-color:#f9f9f9"] { background-color: #161616 !important; }
-  /* Unsub border */
-  td[style*="border:1px solid #cccccc"] { border-color: #444 !important; }
-  /* Tier card body — keep cream feel but dimmed */
-  table[style*="background-color:#ffffff"][style*="border:1px solid #e5dccb"] {
-    background-color: #1f1f1f !important;
-    border-color: #3a3a3a !important;
-  }
-  table[style*="background-color:#ffffff"][style*="border:1px solid #e5dccb"] td[valign="middle"]:not([bgcolor]) {
-    color: #e5e5e5 !important;
-  }
+<style>${DARK_MODE_RULES}
 </style>`
     if (html.includes('</head>')) return html.replace('</head>', dark + '</head>')
     return dark + html
@@ -1669,7 +1698,22 @@ export default function EmailBuilderPage({ embedded = false, initialSubject, ini
     setDraftBrand({ ...EMPTY_BRAND })
   }
 
+  // Blocking MEC gate shared by Copy / Download. Returns false if the user
+  // aborts. A missing "Paid for by" disclaimer is treated like a broken donate
+  // link: the tool refuses to hand off silently non-compliant HTML.
+  const confirmDisclaimer = (): boolean => {
+    if ((draftBrand.paid_for_by || '').trim()) return true
+    return confirm(
+      'No "Paid for by" disclaimer is set for this brand.\n\n' +
+      'Missouri Ethics Commission rules require the exact registered committee ' +
+      'name and current treasurer. The exported HTML will contain a red ' +
+      'PLACEHOLDER in the footer, not a compliant disclaimer.\n\n' +
+      'Export anyway?'
+    )
+  }
+
   const onCopy = async () => {
+    if (!confirmDisclaimer()) return
     try {
       await navigator.clipboard.writeText(html)
       setCopyState('done')
@@ -1686,6 +1730,7 @@ export default function EmailBuilderPage({ embedded = false, initialSubject, ini
   }
 
   const onDownload = () => {
+    if (!confirmDisclaimer()) return
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -1722,7 +1767,7 @@ export default function EmailBuilderPage({ embedded = false, initialSubject, ini
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (e) {
-      // eslint-disable-next-line no-alert
+       
       alert(`PDF generation failed: ${e}`)
     } finally {
       setPdfBusy(false)
@@ -1945,8 +1990,13 @@ export default function EmailBuilderPage({ embedded = false, initialSubject, ini
                   className="w-full bg-terminal-bg border border-terminal-border text-terminal-text px-2 py-1.5 text-xs leading-relaxed focus:outline-none focus:border-terminal-accent"
                 />
                 <div className="text-terminal-muted text-[10px] mt-1">
-                  Appears centered at the bottom of every email built from this brand. If left blank, falls back to "Paid for by {'{candidate name}'}".
+                  Appears centered at the bottom of every email built from this brand. MEC requires the exact registered committee name and current treasurer (e.g. "Paid for by Friends of Jane Doe, John Smith, Treasurer.").
                 </div>
+                {!(draftBrand.paid_for_by || '').trim() && (
+                  <div className="mt-1.5 text-[10px] leading-relaxed text-terminal-red border border-terminal-red/50 bg-terminal-red/10 px-2 py-1">
+                    ⚠ No disclaimer set. MEC compliance is required — the email will ship a red placeholder in the footer until you add the committee name + treasurer here.
+                  </div>
+                )}
               </Field>
 
               <div className="border-t border-terminal-border pt-2 mt-2">
@@ -2741,40 +2791,6 @@ interface ColorRowProps {
   onChange: (v: string) => void
   enabled?: boolean
   onToggleEnabled?: (v: boolean) => void
-}
-
-function ColorRow({ label, value, onChange, enabled, onToggleEnabled }: ColorRowProps) {
-  const isToggleable = typeof enabled === 'boolean' && !!onToggleEnabled
-  const isOff = isToggleable && enabled === false
-  return (
-    <div className={`flex items-center gap-2 ${isOff ? 'opacity-40' : ''}`}>
-      <input
-        type="color"
-        value={value || '#000000'}
-        onChange={e => onChange(e.target.value)}
-        disabled={isOff}
-        className="w-8 h-7 bg-terminal-bg border border-terminal-border cursor-pointer disabled:cursor-not-allowed"
-      />
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        disabled={isOff}
-        placeholder="#000000"
-        className="w-20 bg-terminal-bg border border-terminal-border text-terminal-text px-1.5 py-1 text-xs font-mono focus:outline-none focus:border-terminal-accent disabled:cursor-not-allowed"
-      />
-      <span className="text-xs text-terminal-text uppercase tracking-wider flex-1">{label}</span>
-      {isToggleable && (
-        <button
-          type="button"
-          onClick={() => onToggleEnabled!(!enabled)}
-          className={`text-[10px] uppercase tracking-wider px-2 py-0.5 border transition-colors ${enabled ? 'border-terminal-accent text-terminal-accent' : 'border-terminal-border text-terminal-muted'}`}
-          title={enabled ? `Disable ${label.toLowerCase()} color` : `Enable ${label.toLowerCase()} color`}
-        >
-          {enabled ? 'On' : 'Off'}
-        </button>
-      )}
-    </div>
-  )
 }
 
 // Compact 3-column color picker — label on top, swatch + hex side by side,
