@@ -12,9 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Node 24 bundles npm 11, which is what generated package-lock.json —
+      # npm 10 (Node 20) resolves the vitest/vite toolchain differently and
+      # rejects the lock ("Missing: esbuild@... from lock file").
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run lint
