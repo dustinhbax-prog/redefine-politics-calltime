@@ -9,12 +9,12 @@
 ## 1. Boundary audit findings (2026-07-06)
 
 Compared `public/dpi-data/MO/precinct.geojson` (14 JC ward-precincts) against the county's
-`CC_WardsPrec` file (edited 2023-06-21) by geometric intersection-over-union, then counted
+`CC_WardsPrec` file (W#P# records edited 2024-12-16) by geometric intersection-over-union, then counted
 authoritative county address points falling on the wrong side of the map's lines.
 
 - **No label swaps.** Every map precinct's best geometric match is the identically-coded
   county precinct. Codes/names are correct.
-- **Boundaries are stale.** The map appears to use pre-2023 (Census VTD) lines. Four
+- **Boundaries are stale.** The map appears to use older Census-VTD-era lines. Four
   precincts have material drift:
 
 | Precinct | IoU vs county 2023 | Ward-level effect |
@@ -40,8 +40,8 @@ authoritative county address points falling on the wrong side of the map's lines
 
 | File | Contents |
 |------|----------|
-| `jc-wardprec-2023.geojson` | 14 JC ward-precinct polygons, WGS84, 6-decimal coords. Props: `key` (`W1P1`…`W5P3`), `ward`, `precinct`, `name` (`JC W1 P1` — matches map naming), `voting_dist` (county VotingDist 1–14), `src`, `src_edited`. |
-| `jc-wards-2023.geojson` | 5 ward polygons dissolved from the above. Props: `key` (`JC-1`…`JC-5`), `ward`, `name`. |
+| `jc-wardprec-2024.geojson` | 14 JC ward-precinct polygons, WGS84, 6-decimal coords. Props: `key` (`W1P1`…`W5P3`), `ward`, `precinct`, `name` (`JC W1 P1` — matches map naming), `voting_dist` (county VotingDist 1–14), `src`, `src_edited`. |
+| `jc-wards-2024.geojson` | 5 ward polygons dissolved from the above. Props: `key` (`JC-1`…`JC-5`), `ward`, `name`. |
 | `doors-by-precinct.json` | Address-point ("doors") counts per Cole precinct, keyed by the map's precinct `key`, counted against the 2023 lines for JC and existing map lines for rural precincts. 1,302 county points matched no Cole precinct polygon (edge/rural gaps). |
 
 Raw shapefiles stay out of the repo; keep the zips archived with the external pipeline's
@@ -56,14 +56,14 @@ source data.
 For each feature in `MO/precinct.geojson` with `cofips == "051"` and name matching
 `JC W{w} P{p}`:
 
-1. Replace `geometry` with the matching feature from `jc-wardprec-2023.geojson`
+1. Replace `geometry` with the matching feature from `jc-wardprec-2024.geojson`
    (join on `key` = `W{w}P{p}`).
 2. Keep all existing properties; add provenance:
 
 ```jsonc
 {
   "geom_src": "cole-county-gis",   // string, new
-  "geom_asof": "2023-06-21"        // ISO date, new
+  "geom_asof": "2024-12-16"        // ISO date, new
 }
 ```
 
@@ -71,7 +71,7 @@ For each feature in `MO/precinct.geojson` with `cofips == "051"` and name matchi
 
 ### Stage B — Jefferson City entries in the `cityward` layer
 
-Append 5 features to `MO/cityward.geojson` using `jc-wards-2023.geojson` geometry.
+Append 5 features to `MO/cityward.geojson` using `jc-wards-2024.geojson` geometry.
 Properties must match the existing cityward contract (KC/STL entries), i.e. **all** of:
 
 ```
@@ -146,10 +146,42 @@ Revisit if the assessor attribute table is obtained; join path is
 
 ## 4. Validation checklist (run in pipeline before publishing)
 
-1. Every replaced JC precinct: IoU ≥ 0.99 against `jc-wardprec-2023.geojson`.
+1. Every replaced JC precinct: IoU ≥ 0.99 against `jc-wardprec-2024.geojson`.
 2. Re-run the address containment audit: wrong-ward count must drop from 835 to ~0
    (tolerance: <10 points, all on boundary streets).
 3. Ward dissolve of the 14 precincts equals the 5 cityward polygons (no slivers > 100 m²).
 4. `cityward.geojson` feature count 35 → 40; all 37 properties present and finite on JC rows.
 5. Sum of JC ward `reg_voters` equals sum of the 14 precinct values (27,173).
 6. Regenerate every touched `.gz`; sizes sane; `src/__tests__/dpi-data.test.ts` passes.
+
+---
+
+## Addendum — round 2 (2026-07-06, applied live)
+
+User review caught real problems with the first pass; corrections now live:
+
+1. **Record dates corrected.** The 14 W#P# voting-district records in CC_WardsPrec were
+   last edited **2024-12-16** (not 2023-06-21 — that date belongs to the other-municipality
+   ward records in the same file). All `geom_asof` stamps now read 2024-12-16.
+2. **Township tiling fixed.** Replacing only the 14 city precinct geometries left the
+   VTD-era township polygons overlapping annexed city land (67 addresses double-covered,
+   e.g. Rock Beacon Rd under "Scott Station") and left ex-city slivers uncovered. The 7
+   adjacent rural Cole precincts are now clipped to the complement of the city union and
+   absorbed the orphan slivers (`geom_src: cole-county-gis-complement`). Post-fix audit:
+   0 addresses in >1 precinct, ~0 coverage lost.
+3. **CC_WardsPrec decoding notes** (for future use):
+   - Only records with `NAME='Jefferson City'` AND a `W#P#` code are Cole County voting
+     districts (`VotingDist` 1–14). Union ≈ 33.25 sq mi.
+   - Record 22 (`W2`, NAME=Jefferson City, no VotingDist, 4.40 sq mi) is the city Ward 2
+     territory north of the Missouri River (Callaway County side — votes in Callaway
+     precincts for county/state races; belongs to cofips 027 on the precinct map).
+     City total 33.25 + 4.40 = 37.65 sq mi ≈ the census place area (37.58), confirming
+     the county polygons represent the full city.
+   - The no-NAME records (4×W1, W2, WN/WS/WE/WW, one blank) are OTHER municipalities'
+     wards (Centertown, St. Thomas, Taos, St. Martins N/S, Russellville E/W, …) — ignore.
+   - `Addresses.NW_Venue` is the 911/postal venue, NOT city limits (~11k non-city
+     addresses carry JEFFERSON CITY venue). Do not use it for city-membership tests.
+4. **Ward 2 composition:** county clerk's Voting Locations page + the Dec-2024 GIS both
+   list W2P1/W2P2/W2P3 (W2P3 polls at Capital City Christian Church, 1512 Swifts Hwy).
+   If the city re-precincts after Dec 2024, obtain a fresh CC_WardsPrec export and
+   regenerate the override (`~/mo-dpi/overrides/MO/precinct__cole-cc-wardsprec.geojson`).
