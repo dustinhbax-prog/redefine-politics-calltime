@@ -1,0 +1,149 @@
+{
+ "state": "MO",
+ "cofips": "051",
+ "asof": "2026-07-06",
+ "src": "Cole County GIS Addresses (47,317 pts)",
+ "unmatched_points": 1302,
+ "precincts": {
+  "132": {
+   "name": "Cole County \u2014 JC W5 P3",
+   "doors": 959,
+   "units_flagged": 361
+  },
+  "221": {
+   "name": "Cole County \u2014 Clark Township Eugene",
+   "doors": 919,
+   "units_flagged": 19
+  },
+  "346": {
+   "name": "Cole County \u2014 Jefferson Township Expressway Rental",
+   "doors": 428,
+   "units_flagged": 108
+  },
+  "371": {
+   "name": "Cole County \u2014 JC W1 P2",
+   "doors": 1437,
+   "units_flagged": 403
+  },
+  "413": {
+   "name": "Cole County \u2014 JC W3 P1",
+   "doors": 1505,
+   "units_flagged": 312
+  },
+  "445": {
+   "name": "Cole County \u2014 JC W5 P1",
+   "doors": 2885,
+   "units_flagged": 1454
+  },
+  "450": {
+   "name": "Cole County \u2014 JC W1 P1",
+   "doors": 2744,
+   "units_flagged": 1058
+  },
+  "528": {
+   "name": "Cole County \u2014 JC W2 P1",
+   "doors": 3129,
+   "units_flagged": 1660
+  },
+  "624": {
+   "name": "Cole County \u2014 JC W2 P3",
+   "doors": 2376,
+   "units_flagged": 1305
+  },
+  "740": {
+   "name": "Cole County \u2014 Osage Township Wardsville",
+   "doors": 1624,
+   "units_flagged": 91
+  },
+  "754": {
+   "name": "Cole County \u2014 Osage Township St. Thomas",
+   "doors": 432,
+   "units_flagged": 9
+  },
+  "775": {
+   "name": "Cole County \u2014 JC W5 P2",
+   "doors": 1425,
+   "units_flagged": 385
+  },
+  "823": {
+   "name": "Cole County \u2014 Jefferson Township CC General",
+   "doors": 1636,
+   "units_flagged": 318
+  },
+  "918": {
+   "name": "Cole County \u2014 Clark Township Brazito",
+   "doors": 1259,
+   "units_flagged": 64
+  },
+  "919": {
+   "name": "Cole County \u2014 JC W4 P1",
+   "doors": 2676,
+   "units_flagged": 526
+  },
+  "954": {
+   "name": "Cole County \u2014 Jefferson Township JC Fair",
+   "doors": 1550,
+   "units_flagged": 213
+  },
+  "1040": {
+   "name": "Cole County \u2014 Jefferson Township Apache Flats",
+   "doors": 2346,
+   "units_flagged": 542
+  },
+  "1066": {
+   "name": "Cole County \u2014 Moreau Township Russellville",
+   "doors": 1046,
+   "units_flagged": 75
+  },
+  "1085": {
+   "name": "Cole County \u2014 Liberty Township Taos",
+   "doors": 2019,
+   "units_flagged": 78
+  },
+  "1091": {
+   "name": "Cole County \u2014 JC W3 P3",
+   "doors": 2447,
+   "units_flagged": 1086
+  },
+  "1104": {
+   "name": "Cole County \u2014 JC W1 P3",
+   "doors": 1355,
+   "units_flagged": 249
+  },
+  "1217": {
+   "name": "Cole County \u2014 JC W2 P2",
+   "doors": 1749,
+   "units_flagged": 670
+  },
+  "1265": {
+   "name": "Cole County \u2014 JC W3 P2",
+   "doors": 933,
+   "units_flagged": 116
+  },
+  "1376": {
+   "name": "Cole County \u2014 Moreau Township Lohman",
+   "doors": 472,
+   "units_flagged": 13
+  },
+  "1381": {
+   "name": "Cole County \u2014 JC W4 P2",
+   "doors": 2625,
+   "units_flagged": 603
+  },
+  "1521": {
+   "name": "Cole County \u2014 Marion Township St Martins",
+   "doors": 1458,
+   "units_flagged": 144
+  },
+  "1529": {
+   "name": "Cole County \u2014 Marion Township Centertown",
+   "doors": 758,
+   "units_flagged": 12
+  },
+  "1532": {
+   "name": "Cole County \u2014 Jefferson Township Scott Station",
+   "doors": 1823,
+   "units_flagged": 379
+  }
+ }
+}
